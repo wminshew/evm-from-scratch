@@ -28,14 +28,14 @@ impl State {
         self.0
             .get(address)
             .map(|addr| addr.balance)
-            .unwrap_or_else(|| U256::zero())
+            .unwrap_or_else(U256::zero)
     }
 
     pub fn get_nonce(&self, address: &U256) -> U256 {
         self.0
             .get(address)
             .map(|addr| addr.nonce)
-            .unwrap_or_else(|| U256::zero())
+            .unwrap_or_else(U256::zero)
     }
 
     pub fn get_code(&self, address: &U256) -> Vec<u8> {
@@ -54,10 +54,10 @@ impl State {
             .map(|si| &si.storage)
             .and_then(|s| s.get(key))
             .map(|k| k.to_owned())
-            .unwrap_or_else(|| U256::zero())
+            .unwrap_or_else(U256::zero)
     }
 
-    pub fn store(&mut self, address: &U256, key: &U256, value: &U256) -> () {
+    pub fn store(&mut self, address: &U256, key: &U256, value: &U256) {
         self.0
             .entry(address.to_owned())
             .or_default()
@@ -65,7 +65,7 @@ impl State {
             .insert(key.to_owned(), value.to_owned());
     }
 
-    pub fn deploy(&mut self, address: &U256, value: &U256, code: &str) -> () {
+    pub fn deploy(&mut self, address: &U256, value: &U256, code: &str) {
         self.0.insert(
             address.to_owned(),
             StateInfo {
@@ -79,7 +79,7 @@ impl State {
         );
     }
 
-    pub fn self_destruct(&mut self, address: &U256, send_balance_to: &U256) -> () {
+    pub fn self_destruct(&mut self, address: &U256, send_balance_to: &U256) {
         let my_balance = self.get_balance(address);
 
         let mut e = self.0.entry(send_balance_to.to_owned()).or_default();

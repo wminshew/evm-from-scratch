@@ -12,6 +12,10 @@ impl Memory {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.len() == 0
+    }
+
     pub fn store(&mut self, offset: usize, data: &[u8]) {
         let end = offset + data.len();
         self.resize(end);
@@ -24,9 +28,15 @@ impl Memory {
         &self.0[offset..end]
     }
 
-    fn resize(&mut self, end: usize) -> () {
+    fn resize(&mut self, end: usize) {
         if end > self.0.len() {
             self.0.resize(((end + 31) / 32) * 32, 0);
         }
+    }
+}
+
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new()
     }
 }

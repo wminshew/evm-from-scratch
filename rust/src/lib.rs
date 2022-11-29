@@ -55,7 +55,7 @@ pub fn evm(
     let mut last_return_data: Vec<u8> = Vec::new();
 
     let code = _code.as_ref();
-    let mut pc = PC::new(&code);
+    let mut pc = PC::new(code);
 
     while let Some(opcode) = pc.next() {
         match opcode {
@@ -300,7 +300,7 @@ pub fn evm(
             0x3f if let Some(address) = stack.pop() => {
                 let ext_code = state.get_code(&address);
                 stack.push(
-                    if ext_code.len() == 0 {
+                    if ext_code.is_empty() {
                         U256::zero()
                     } else {
                         U256::from(Keccak256::digest(ext_code).as_slice())
@@ -357,7 +357,7 @@ pub fn evm(
             }
             // MSTORE8
             0x53 if let ( Some(offset), Some(value) ) = ( stack.pop(), stack.pop() ) => {
-                memory.store(offset.as_usize(), &vec![value.byte(0)]);
+                memory.store(offset.as_usize(), &[value.byte(0)]);
             }
             // SLOAD
             0x54 if let Some(key) = stack.pop() => {
@@ -442,14 +442,14 @@ pub fn evm(
                 let mut new_mem = [0u8; 64];
                 new_mem[..32].copy_from_slice(&<[u8; 32]>::from(tx.to));
                 new_mem[32..].copy_from_slice(&<[u8; 32]>::from(state.get_nonce(&tx.to)));
-                let address = U256::try_from(&Keccak256::digest(&new_mem).as_slice()[24..]).unwrap();
+                let address = U256::try_from(&Keccak256::digest(new_mem).as_slice()[24..]).unwrap();
 
                 let init_code = memory.load(offset.as_usize(), size.as_usize());
 
                 let tx = Tx {
                     to: address.to_owned(),
                     from: tx.to.to_owned(),
-                    data: hex::encode(&init_code),
+                    data: hex::encode(init_code),
                     value,
                     ..tx.to_owned()
                 };
@@ -458,7 +458,7 @@ pub fn evm(
                 let result = evm(
                     init_code,
                     &tx,
-                    &block,
+                    block,
                     state,
                     true,
                 );
@@ -487,7 +487,7 @@ pub fn evm(
                     to: address.to_owned(),
                     from: tx.to.to_owned(),
                     value,
-                    data: hex::encode(&memory.load(args_offset.as_usize(), args_size.as_usize())),
+                    data: hex::encode(memory.load(args_offset.as_usize(), args_size.as_usize())),
                     ..tx.to_owned()
                 };
 
@@ -515,7 +515,7 @@ pub fn evm(
             }
             // RETURN
             0xf3 if let ( Some(offset), Some(size) ) = ( stack.pop(), stack.pop() ) => {
-                ret = hex::encode(&memory.load(offset.as_usize(), size.as_usize()));
+                ret = hex::encode(memory.load(offset.as_usize(), size.as_usize()));
                 break;
             }
             // DELEGATECALL
@@ -529,7 +529,7 @@ pub fn evm(
                 // prep call
 
                 let tx = &Tx {
-                    data: hex::encode(&memory.load(args_offset.as_usize(), args_size.as_usize())),
+                    data: hex::encode(memory.load(args_offset.as_usize(), args_size.as_usize())),
                     ..tx.to_owned()
                 };
 
@@ -538,7 +538,7 @@ pub fn evm(
                 // call
                 let result = evm(
                     _code,
-                    &tx,
+                    tx,
                     block,
                     state,
                     true,
@@ -566,7 +566,7 @@ pub fn evm(
                 let tx = &Tx {
                     to: address.to_owned(),
                     from: tx.to.to_owned(),
-                    data: hex::encode(&memory.load(args_offset.as_usize(), args_size.as_usize())),
+                    data: hex::encode(memory.load(args_offset.as_usize(), args_size.as_usize())),
                     ..tx.to_owned()
                 };
 
@@ -595,7 +595,7 @@ pub fn evm(
             }
             // REVERT
             0xfd if let ( Some(offset), Some(size) ) = ( stack.pop(), stack.pop() ) => {
-                ret = hex::encode(&memory.load(offset.as_usize(), size.as_usize()));
+                ret = hex::encode(memory.load(offset.as_usize(), size.as_usize()));
                 success = false;
                 break;
             }
@@ -618,12 +618,12 @@ pub fn evm(
 
     stack.reverse();
 
-    return EvmResult {
+    EvmResult {
         logs,
         stack,
         success,
         ret,
-    };
+    }
 }
 
 fn twos_complement(a: &U256) -> (bool, U256) {
