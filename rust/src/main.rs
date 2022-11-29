@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-
 /**
  * EVM From Scratch
  * Rust template
@@ -14,8 +13,8 @@
  * gave up and switched to JavaScript, Python, or Go. If you are new
  * to Rust, implement EVM in another programming language first.
  */
-use evm::{evm, Block, Log, State, Tx};
-use primitive_types::U256;
+use ethereum_types::U256;
+use evm::{evm, Block, Code, Log, State, Tx};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -23,27 +22,27 @@ struct Evmtest {
     name: String,
     hint: String,
 
-    block: Option<Block>,
-    tx: Option<Tx>,
-    state: Option<State>,
+    #[serde(default)]
+    block: Block,
+    #[serde(default)]
+    tx: Tx,
+    #[serde(default)]
+    state: State,
 
     code: Code,
     expect: Expect,
 }
 
 #[derive(Debug, Deserialize)]
-struct Code {
-    asm: String,
-    bin: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct Expect {
-    stack: Option<Vec<String>>,
     success: bool,
-    logs: Option<Vec<Log>>,
+    #[serde(default)]
+    stack: Vec<String>,
+    #[serde(default)]
+    logs: Vec<Log>,
     #[serde(rename = "return")]
-    ret: Option<String>,
+    #[serde(default)]
+    ret: String,
 }
 
 fn main() {
@@ -57,48 +56,25 @@ fn main() {
 
         let code: Vec<u8> = hex::decode(&test.code.bin).unwrap();
 
-        let result = evm(
-            &code,
-            test.tx.as_ref(),
-            test.block.as_ref(),
-            test.state.as_mut(),
-            true,
-        );
+        let result = evm(&code, &test.tx, &test.block, &mut test.state, true);
 
         let expected_stack: Vec<U256> = test
             .expect
             .stack
-            .as_ref()
-            .and_then(|s| s.iter().map(|v| U256::from_str_radix(v, 16).ok()).collect())
-            .unwrap_or_else(|| Vec::new());
+            .iter()
+            .map(|v| U256::from_str_radix(v, 16).unwrap())
+            .collect();
 
-        let mut matching = result.stack == expected_stack;
-
-        matching = matching && result.success == test.expect.success;
-
-        if matching && let Some(expected_logs) = test.expect.logs.as_ref() {
-            for ( i, expected_log ) in expected_logs.into_iter().enumerate() {
-                let log = &result.logs[i];
-                if expected_log.address != log.address
-                    || expected_log.data != log.data
-                    || expected_log.topics != log.topics {
-                        matching = false;
-                        break;
-                    }
-            }
-        }
-
-        if matching && let Some(ret) = test.expect.ret.as_ref() {
-            matching = result.ret == *ret;
-        }
+        let matching = result.success == test.expect.success
+            && result.stack == expected_stack
+            && result.logs == test.expect.logs
+            && result.ret == test.expect.ret;
 
         if !matching {
-            println!("Instructions: \n{}\n", test.code.asm);
+            println!("Instructions: \n{}\n", test.code.asm.as_ref().unwrap());
 
             println!("Expected success: {:?}", test.expect.success);
-            if let Some(ret) = test.expect.ret.as_ref() {
-                println!("Expected return: {:?}", ret);
-            }
+            println!("Expected return: {:?}", test.expect.ret);
             println!("Expected stack: [");
             for v in expected_stack {
                 println!("  {:#X},", v);
@@ -106,9 +82,7 @@ fn main() {
             println!("]\n");
 
             println!("Actual success: {:?}", result.success);
-            if test.expect.ret.is_some() {
-                println!("Expected return: {:?}", result.ret);
-            }
+            println!("Expected return: {:?}", result.ret);
             println!("Actual stack: [");
             for v in result.stack {
                 println!("  {:#X},", v);
