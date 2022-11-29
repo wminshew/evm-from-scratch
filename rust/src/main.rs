@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 /**
  * EVM From Scratch
  * Rust template
